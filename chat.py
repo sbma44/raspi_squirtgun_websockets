@@ -11,6 +11,7 @@ import os
 import logging
 import redis
 import gevent
+import json
 from flask import Flask, render_template
 from flask_sockets import Sockets
 
@@ -70,11 +71,22 @@ chats.start()
 def hello():
     return render_template('index.html')
 
+# @app.route('/client-list')
+# def client_list():
+#     peers = list()
+#     for c in chats.clients:
+#         peers.append(":".join(map(lambda x: str(x), c.socket.getpeername())))
+#     return json.dumps({'peers': peers})
+
+@app.route('/client-count')
+def client_list():
+    return json.dumps({'client_count': len(chats.clients)})
+
 @sockets.route('/submit')
 def inbox(ws):
     """Receives incoming chat messages, inserts them into Redis."""
     while ws.socket is not None:
-        # Sleep to prevent *contstant* context-switches.
+        # Sleep to prevent *constant* context-switches.
         gevent.sleep(0.1)
         message = ws.receive()
 
