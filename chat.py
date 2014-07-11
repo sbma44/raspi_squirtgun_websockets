@@ -12,18 +12,20 @@ import logging
 import redis
 import gevent
 import json
+import time
 from flask import Flask, render_template
 from flask_sockets import Sockets
 
 REDIS_URL = os.environ['REDISCLOUD_URL']
 REDIS_CHAN = 'chat'
 
+KEEPALIVE_TIMEOUT = 15
+
 app = Flask(__name__)
 app.debug = 'DEBUG' in os.environ
 
 sockets = Sockets(app)
 redis = redis.from_url(REDIS_URL)
-
 
 
 class ChatBackend(object):
@@ -80,7 +82,12 @@ def hello():
 
 @app.route('/client-count')
 def client_list():
-    return json.dumps({'client_count': len(chats.clients)})
+    keepalive = json.loads(redis.get('keepalive'))
+    for (client, last_observation) in keepalive.items():
+        if time.time() - last_observation > KEEPALIVE_TIMEOUT:
+            del keepalive[client]
+    redis.set('keepalive', json.dumps(keepalive))
+    return json.dumps({'client_count': len(keepalive)})
 
 @sockets.route('/submit')
 def inbox(ws):
@@ -91,8 +98,18 @@ def inbox(ws):
         message = ws.receive()
 
         if message:
-            app.logger.info(u'Inserting message: {}'.format(message))
-            redis.publish(REDIS_CHAN, message)
+            try:
+                message_json = json.loads(message)
+                if message_json.has_key('keepalive'):
+                    keepalive = dict()
+                    keepalive[message_json['keepalive']] = time.time()
+                    redis.set('keepalive', json.dumps(keepalive))
+                else:
+                    app.logger.info(u'Inserting message: {}'.format(message))
+                    redis.publish(REDIS_CHAN, message)
+            except:
+                continue
+            
 
 @sockets.route('/receive')
 def outbox(ws):
