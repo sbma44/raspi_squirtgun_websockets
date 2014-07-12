@@ -3,10 +3,6 @@ var outbox = new ReconnectingWebSocket("ws://"+ location.host + "/submit");
 
 inbox.onmessage = function(message) {
   var data = JSON.parse(message.data);
-  $("#chat-text").append("<div class='panel panel-default'><div class='panel-heading'>" + $('<span/>').text(data.handle).html() + "</div><div class='panel-body'>" + $('<span/>').text(data.text).html() + "</div></div>");
-  $("#chat-text").stop().animate({
-    scrollTop: $('#chat-text')[0].scrollHeight
-  }, 800);
 };
 
 inbox.onclose = function(){
@@ -20,10 +16,40 @@ outbox.onclose = function(){
     this.outbox = new WebSocket(outbox.url);
 };
 
+function activate(){
+  $('#system-status').removeClass('offline').addClass('online');
+  $('#fire').removeClass('disabled');
+}
+
+function deactivate(){
+  $('#system-status').removeClass('online').addClass('offline');
+  $('#fire').addClass('disabled');
+}
+
+function checkStatus(){
+  $.getJSON('/client-count', function(data){
+    if (parseInt(data.client_count)>0){
+      activate();
+    }
+    else{
+      deactivate();
+    }
+  });
+}
+
+$(function(){
+  window.FIRE_DURATION = 0.5;
+
+  window.setInterval(checkStatus, 1000);
+
+  $('#duration button').click(function(){
+    $('#duration button').removeClass('active');
+    $(this).addClass('active');
+    window.FIRE_DURATION = $(this).attr('rel');
+  });
+});
+
 $("#input-form").on("submit", function(event) {
-  event.preventDefault();
-  var handle = $("#input-handle")[0].value;
-  var text   = $("#input-text")[0].value;
-  outbox.send(JSON.stringify({ handle: handle, text: text }));
-  $("#input-text")[0].value = "";
+  event.preventDefault();  
+  outbox.send(JSON.stringify({ handle: 'FIRE', text: window.FIRE_DURATION, timestamp: Math.round(new Date().getTime() / 1000) }));
 });
