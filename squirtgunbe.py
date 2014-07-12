@@ -32,7 +32,7 @@ def check_auth(username, password):
     """This function is called to check if a username /
     password combination is valid.
     """
-    return username == 'admin' and password == 'secret'
+    return username == 'gandm' and password == 'discipline'
 
 def authenticate():
     """Sends a 401 response that enables basic auth"""
@@ -91,8 +91,8 @@ class SquirtgunBackend(object):
 chats = SquirtgunBackend()
 chats.start()
 
-
 @app.route('/')
+@requires_auth
 def hello():
     return render_template('index.html')
 
